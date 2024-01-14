@@ -58,7 +58,7 @@ model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=hparams.learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 
 if args.name is None:
-    args.name = args.model
+    args.name = hparams.model
 save = Save(args.name)
 save.save_parameters(hparams)
 
@@ -67,7 +67,7 @@ def process(model, stage, data, step, batch):
         texts, mfccs = data
         p_texts, p_mfccs, w, optional = model(texts, mfccs, True)
     else:
-        texts, mfccs, *boundary_gt = data
+        texts, mfccs, boundary_gt = data
         p_texts, p_mfccs, w, optional = model(texts, mfccs, True, 0.5, boundary_gt)
 
     text_loss = model.text_loss(p_texts, texts)
