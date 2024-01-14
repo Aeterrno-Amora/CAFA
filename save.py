@@ -74,9 +74,12 @@ class Save:
 
         self.writer.add_image(f"{stage}/boundary", plot_alignment_to_numpy(figure), step, dataformats='HWC')
 
-    def save_attention(self, stage, step, w1, w2):
-        self.writer.add_image(f"{stage}/w1", plot_alignment_to_numpy(w1.T.data.cpu().numpy()), step, dataformats='HWC')
-        self.writer.add_image(f"{stage}/w2", plot_alignment_to_numpy(w2.T.data.cpu().numpy()), step, dataformats='HWC')
+    def save_attention(self, stage, step, w):
+        if w.size(-1) == 1:
+            self.writer.add_image(f"{stage}/w", plot_alignment_to_numpy(w.squeeze().T.data.cpu().numpy()), step, dataformats='HWC')
+        else:
+            self.writer.add_image(f"{stage}/w1", plot_alignment_to_numpy(w[:, :, 0].T.data.cpu().numpy()), step, dataformats='HWC')
+            self.writer.add_image(f"{stage}/w2", plot_alignment_to_numpy(w[:, :, 1].T.data.cpu().numpy()), step, dataformats='HWC')
 
 if __name__ == '__main__':
     save = Save()

@@ -28,8 +28,8 @@ base = Options()
 base.max_epochs = 50000
 base.batch_size = 16
 base.learning_rate = 1e-4
-base.reduction_rate = 1
-base.strategy = 'pretrain'
+base.reduction_rate = 1 # when loading dataset
+base.strategy = 'semi2'
 
 base.input.num_symbols = 84 + 1
 base.input.max_frames = 4500 // base.reduction_rate
@@ -55,6 +55,14 @@ base.speech_encoder.cnn.filters = [512, 512, 512]
 base.speech_encoder.gru_dim = 256
 base.speech_encoder.output_dim = base.speech_encoder.gru_dim * 2
 
+base.model = 'CAFA'
+base.TeP = False
+base.MeP = False
+base.double_PE = False
+
+base.attention.pad_silences = True
+base.attention.same_silence = True
+base.attention.fast_sliding_window = False
 base.attention.dim = 128
 base.attention.text_input_dim = base.text_encoder.output_dim
 base.attention.speech_input_dim = base.speech_encoder.output_dim
@@ -69,7 +77,8 @@ base.speech_decoder.input_dim = base.attention.speech_output_dim
 base.speech_decoder.lstm_dim = 256
 base.speech_decoder.output_dim = base.input.mfcc_dim
 
-base.aligner.input_dim = 6
+base.aligner.enable = False
+base.aligner.input_dim = 2 if base.model == 'NeuFA' else 1
 base.aligner.lstm_dim = 32
 base.aligner.max_frames = base.input.max_frames
 base.aligner.location_layer.attention_n_filters = 32
@@ -89,8 +98,9 @@ base.speech_loss = 1
 base.text_loss = 0.1
 base.tep_loss = 10
 base.mep_loss = 10
-base.attention_loss = 1e3
+base.attention_loss = 0 # 1e3
 base.attention_loss_alpha = 0.5
+base.ctc_loss = 1e3
 base.boundary_loss = 100
 
 temp = deepcopy(base)

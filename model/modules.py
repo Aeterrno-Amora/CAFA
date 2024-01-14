@@ -310,7 +310,7 @@ class Aligner(nn.Module):
         #self.lstm2 = nn.GRU(input_size=hparams.lstm_dim * 2, hidden_size=hparams.lstm_dim, bidirectional=True, batch_first=True)
 
         #self.location_layer = LocationLayer(hparams.location_layer.attention_n_filters, hparams.location_layer.attention_kernel_size, hparams.location_layer.output_dim)
-        filters = [hparams.input_dim] + hparams.cnn.filters
+        filters = [hparams.input_dim * 3] + hparams.cnn.filters
         #convs = (BatchNormConv1d(filters[i], filters[i + 1], hparams.cnn.kernel_size, 1, hparams.cnn.kernel_size//2) for i in range(len(hparams.cnn.filters)))
         #self.convs = nn.Sequential(*convs)
         convs = (BatchNormConv2d(filters[i], filters[i + 1], hparams.cnn.kernel_size, 1, tuple([i//2 for i in hparams.cnn.kernel_size])) for i in range(len(hparams.cnn.filters)))
@@ -319,24 +319,18 @@ class Aligner(nn.Module):
         self.linear = nn.Linear(filters[-1], 2)
         self.softmax = nn.Softmax(-1)
 
-    def stack_attention(self, w1, w2):
-        w1 = [i.T for i in w1]
-        max_frames = max([i.shape[1] for i in w1])
-        w1 = [torch.cat([i, torch.zeros(i.shape[0], max_frames - i.shape[1], device=i.device)], dim=-1) for i in w1]
-        w2 = [torch.cat([i, torch.zeros(i.shape[0], max_frames - i.shape[1], device=i.device)], dim=-1) for i in w2]
-        w1 = nn.utils.rnn.pad_sequence(w1, batch_first=True)
-        w2 = nn.utils.rnn.pad_sequence(w2, batch_first=True)
-        accumulated_w1 = torch.cumsum(w1, -1)
-        accumulated_w2 = torch.cumsum(w2, -1)
-        accumulated_w1_backward = torch.cumsum(w1.flip(-1), -1).flip(-1)
-        accumulated_w2_backward = torch.cumsum(w2.flip(-1), -1).flip(-1)
-        #x = torch.stack([w1, w2, accumulated_w1, accumulated_w2, accumulated_w1_backward, accumulated_w2_backward], dim=-1).permute(1, 0, 3, 2)
-        #return torch.stack([self.convs(i) for i in x]).permute(1, 0, 3, 2)
-        x = torch.stack([w1, w2, accumulated_w1, accumulated_w2, accumulated_w1_backward, accumulated_w2_backward], dim=-1).permute(0, 3, 1, 2)
-        return self.convs(x).permute(0, 2, 3, 1)
+    def stack_attention(self, w):
+        # w: 4-dim tensor, channel last, #channels = input_dim
+        # output: 4-dim tensor, channel last, #channels = 3 * input_dim
+        accumulated = torch.cumsum(w, -2)
+        accumulated_backward = torch.cumsum(w.flip(-2), -2).flip(-2)
+        return torch.cat([w, accumulated, accumulated_backward], dim=-1)
 
-    def forward(self, texts, w1, w2, text_lengths, mfcc_lengths):
-        x = self.stack_attention(w1, w2)
+    def forward(self, texts, text_lengths, mfcc_lengths, w, w_T=None):
+        x = self.stack_attention(w)
+        x = self.convs(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
+        if w_T is not None:
+            x = torch.cat([x, self.stack_attention([i.T for i in w_T])])
         x = torch.sigmoid(self.linear(x).transpose(-1, -2))
         x = torch.cumsum(x, dim=-1)
         #x = torch.stack([torch.cumsum(x[:,:,0,:], dim=-1), torch.cumsum(x[:,:,1,:].flip(-1), dim=-1).flip(-1)], dim=-2)
@@ -345,6 +339,7 @@ class Aligner(nn.Module):
         return x
 
 class Predictor(nn.Module):
+    # deprecated, may not be compatible
 
     def __init__(self, hparams):
         super().__init__()
